@@ -1,6 +1,7 @@
 const express = require('express');
 const Database = require('better-sqlite3');
 const multer = require('multer');
+const { rateLimit } = require('express-rate-limit');
 const fs = require('fs');
 const fsp = require('fs/promises');
 const os = require('os');
@@ -10,10 +11,21 @@ const { spawn } = require('child_process');
 function sanitizeSegment(value) {
   return (value || 'SemNome')
     .normalize('NFKD')
-    .replace(/[^a-zA-Z0-9-_ .]/g, '')
+    .replace(/[^a-zA-Z0-9-_ ]/g, '')
     .trim()
     .replace(/\s+/g, ' ')
     .slice(0, 80) || 'SemNome';
+}
+
+function sanitizeFileName(value) {
+  const sanitized = (value || 'ficheiro')
+    .normalize('NFKD')
+    .replace(/[^a-zA-Z0-9-_. ]/g, '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .slice(0, 120);
+
+  return sanitized && sanitized !== '.' && sanitized !== '..' ? sanitized : 'ficheiro';
 }
 
 function toIsoDateRangeStart(date) {
@@ -26,6 +38,41 @@ function toIsoDateRangeEnd(date) {
 
 function ensurePathExists(filePath) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
+}
+
+function resolveInside(rootPath, ...segments) {
+  segments.forEach((segment) => {
+    if (typeof segment !== 'string' || !segment.length) {
+      throw new Error('Segmento de caminho inválido');
+    }
+    if (segment === '.' || segment === '..' || segment.includes('/') || segment.includes('\\')) {
+      throw new Error('Segmento de caminho inválido');
+    }
+  });
+
+  const root = path.resolve(rootPath);
+  const resolved = path.resolve(root, ...segments);
+  if (resolved !== root && !resolved.startsWith(`${root}${path.sep}`)) {
+    throw new Error('Caminho inválido');
+  }
+  return resolved;
+}
+
+function isInside(rootPath, targetPath) {
+  const root = path.resolve(rootPath);
+  const resolved = path.resolve(targetPath);
+  return resolved === root || resolved.startsWith(`${root}${path.sep}`);
+}
+
+async function removeTempFile(filePath, uploadRoot) {
+  if (!filePath || !isInside(uploadRoot, filePath)) {
+    return;
+  }
+  const safePath = resolveInside(uploadRoot, path.basename(filePath));
+  if (path.resolve(filePath) !== safePath) {
+    return;
+  }
+  await fsp.unlink(safePath).catch(() => {});
 }
 
 function openPath(targetPath) {
@@ -109,6 +156,15 @@ function createApp(config = {}) {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
   app.use(express.static(path.join(__dirname, 'public')));
+  app.use(
+    '/api',
+    rateLimit({
+      windowMs: 60 * 1000,
+      limit: 120,
+      standardHeaders: true,
+      legacyHeaders: false,
+    })
+  );
 
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true });
@@ -211,7 +267,7 @@ function createApp(config = {}) {
         return res.status(400).json({ error: 'Ficheiro é obrigatório.' });
       }
       if (!clientName || !clientNumber || !nif || !documentType) {
-        await fsp.unlink(file.path).catch(() => {});
+        await removeTempFile(file.path, uploadTemp);
         return res.status(400).json({ error: 'Cliente, número, NIF e tipo de documento são obrigatórios.' });
       }
 
@@ -224,14 +280,19 @@ function createApp(config = {}) {
 
       const customerFolder = sanitizeSegment(clientName);
       const typeFolder = sanitizeSegment(documentType);
-      const finalDir = path.join(documentsRoot, customerFolder, typeFolder);
+      const finalDir = resolveInside(documentsRoot, customerFolder, typeFolder);
       await fsp.mkdir(finalDir, { recursive: true });
 
-      const sanitizedOriginal = sanitizeSegment(path.basename(file.originalname));
+      const sanitizedOriginal = sanitizeFileName(path.basename(file.originalname));
       const storedFileName = `${Date.now()}-${sanitizedOriginal}`;
-      const finalPath = path.join(finalDir, storedFileName);
+      const finalPath = resolveInside(finalDir, storedFileName);
+      const tempPath = resolveInside(uploadTemp, path.basename(file.path));
 
-      await fsp.rename(file.path, finalPath);
+      if (path.resolve(file.path) !== tempPath) {
+        throw new Error('Caminho temporário inválido');
+      }
+
+      await fsp.rename(tempPath, finalPath);
       const stats = await fsp.stat(finalPath);
       const extension = path.extname(file.originalname || '').toLowerCase();
       const uploadAt = new Date().toISOString();
@@ -278,7 +339,7 @@ function createApp(config = {}) {
       return res.status(201).json(saved);
     } catch (error) {
       if (req.file?.path) {
-        await fsp.unlink(req.file.path).catch(() => {});
+        await removeTempFile(req.file.path, uploadTemp);
       }
       return res.status(500).json({ error: 'Erro ao guardar documento.', detail: error.message });
     }
@@ -369,6 +430,9 @@ function createApp(config = {}) {
     if (!row) {
       return res.status(404).json({ error: 'Documento não encontrado.' });
     }
+    if (!isInside(documentsRoot, row.file_path)) {
+      return res.status(400).json({ error: 'Caminho inválido.' });
+    }
 
     if (!fs.existsSync(row.file_path)) {
       return res.status(404).json({ error: 'Ficheiro físico não encontrado.' });
@@ -384,6 +448,9 @@ function createApp(config = {}) {
     if (!row) {
       return res.status(404).json({ error: 'Documento não encontrado.' });
     }
+    if (!isInside(documentsRoot, row.file_path)) {
+      return res.status(400).json({ error: 'Caminho inválido.' });
+    }
 
     try {
       openPath(row.file_path);
@@ -398,6 +465,9 @@ function createApp(config = {}) {
     const row = db.prepare('SELECT file_path FROM documents WHERE id = ?').get(id);
     if (!row) {
       return res.status(404).json({ error: 'Documento não encontrado.' });
+    }
+    if (!isInside(documentsRoot, row.file_path)) {
+      return res.status(400).json({ error: 'Caminho inválido.' });
     }
 
     try {
