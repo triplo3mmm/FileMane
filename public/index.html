@@ -3,79 +3,687 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FileMane - Gestão Documental</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Segmais - Gestão Documental</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #172033;
+        --muted: #667085;
+        --line: #d9dee8;
+        --panel: #ffffff;
+        --soft: #f4f6f9;
+        --accent: #176b5d;
+        --accent-strong: #0f4c43;
+        --warn: #aa4b1b;
+        --blue: #2f5d9b;
+        --shadow: 0 14px 34px rgba(23, 32, 51, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background:
+          linear-gradient(135deg, rgba(23, 107, 93, 0.08), transparent 34%),
+          linear-gradient(315deg, rgba(47, 93, 155, 0.08), transparent 42%),
+          var(--soft);
+        color: var(--ink);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      .shell {
+        margin: 0 auto;
+        max-width: 1320px;
+        padding: 24px;
+      }
+
+      .topbar {
+        align-items: center;
+        display: flex;
+        gap: 18px;
+        justify-content: space-between;
+        margin-bottom: 18px;
+      }
+
+      .brand {
+        align-items: center;
+        display: flex;
+        gap: 12px;
+      }
+
+      .brand-mark {
+        align-items: center;
+        background: var(--accent);
+        border-radius: 8px;
+        color: white;
+        display: grid;
+        font-weight: 800;
+        height: 44px;
+        justify-content: center;
+        letter-spacing: 0;
+        width: 44px;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: clamp(1.45rem, 2.4vw, 2.1rem);
+        letter-spacing: 0;
+        line-height: 1.1;
+      }
+
+      h2 {
+        font-size: 1.12rem;
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      .workspace-path {
+        background: rgba(255, 255, 255, 0.7);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        color: var(--muted);
+        max-width: 560px;
+        overflow: hidden;
+        padding: 10px 12px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .nav {
+        background: rgba(255, 255, 255, 0.75);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        display: grid;
+        gap: 6px;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        margin-bottom: 18px;
+        padding: 6px;
+      }
+
+      .tab-btn {
+        align-items: center;
+        background: transparent;
+        border: 0;
+        border-radius: 6px;
+        color: var(--muted);
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+        min-height: 42px;
+        padding: 8px 10px;
+        transition: background 0.15s ease, color 0.15s ease;
+      }
+
+      .tab-btn.active {
+        background: var(--ink);
+        color: #fff;
+      }
+
+      .panel {
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+        padding: 22px;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      .dashboard-grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .metric {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 18px;
+      }
+
+      .metric span {
+        color: var(--muted);
+        display: block;
+        font-size: 0.88rem;
+        margin-bottom: 8px;
+      }
+
+      .metric strong {
+        font-size: 2rem;
+      }
+
+      .split {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+        margin-top: 16px;
+      }
+
+      .form-grid {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .form-grid.three {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .full {
+        grid-column: 1 / -1;
+      }
+
+      label {
+        color: #344054;
+        display: grid;
+        font-size: 0.9rem;
+        font-weight: 650;
+        gap: 7px;
+      }
+
+      .combo {
+        display: grid;
+        gap: 7px;
+        position: relative;
+      }
+
+      .field-head {
+        align-items: center;
+        display: flex;
+        gap: 10px;
+        justify-content: space-between;
+      }
+
+      .field-head label,
+      .field-head .field-label {
+        display: block;
+        font-size: 0.9rem;
+        font-weight: 650;
+      }
+
+      .combo label {
+        display: block;
+      }
+
+      .suggestions {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: 0 16px 34px rgba(23, 32, 51, 0.14);
+        left: 0;
+        max-height: 260px;
+        overflow: auto;
+        padding: 6px;
+        position: absolute;
+        right: 0;
+        top: calc(100% + 4px);
+        z-index: 10;
+      }
+
+      .suggestion {
+        background: transparent;
+        border: 0;
+        border-radius: 6px;
+        color: var(--ink);
+        display: block;
+        padding: 10px 11px;
+        text-align: left;
+        width: 100%;
+      }
+
+      .suggestion:hover,
+      .suggestion.active {
+        background: #eef6f4;
+      }
+
+      .suggestion strong {
+        display: block;
+        font-size: 0.92rem;
+      }
+
+      .suggestion span {
+        color: var(--muted);
+        display: block;
+        font-size: 0.82rem;
+        margin-top: 2px;
+      }
+
+      .suggestion.empty {
+        color: var(--muted);
+        cursor: default;
+      }
+
+      .search-types {
+        display: grid;
+        gap: 10px;
+      }
+
+      .search-types-list {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .search-type-item {
+        align-items: center;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        display: flex;
+        gap: 10px;
+        min-height: 42px;
+        padding: 10px 12px;
+      }
+
+      .search-type-item input {
+        accent-color: var(--accent);
+        margin: 0;
+        min-height: 0;
+        width: auto;
+      }
+
+      .search-type-item span {
+        font-weight: 600;
+      }
+
+      input,
+      select,
+      textarea {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        color: var(--ink);
+        min-height: 42px;
+        padding: 10px 11px;
+        width: 100%;
+      }
+
+      textarea {
+        min-height: 96px;
+        resize: vertical;
+      }
+
+      select[multiple] {
+        min-height: 122px;
+      }
+
+      input:focus,
+      select:focus,
+      textarea:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(23, 107, 93, 0.16);
+        outline: none;
+      }
+
+      .actions {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .btn {
+        align-items: center;
+        border: 1px solid transparent;
+        border-radius: 7px;
+        display: inline-flex;
+        font-weight: 750;
+        gap: 8px;
+        justify-content: center;
+        min-height: 40px;
+        padding: 9px 13px;
+      }
+
+      .btn.primary {
+        background: var(--accent);
+        color: white;
+      }
+
+      .btn.primary:hover {
+        background: var(--accent-strong);
+      }
+
+      .btn.secondary {
+        background: white;
+        border-color: var(--line);
+        color: var(--ink);
+      }
+
+      .btn.blue {
+        background: var(--blue);
+        color: white;
+      }
+
+      .btn.warn {
+        background: var(--warn);
+        color: white;
+      }
+
+      .section-head {
+        align-items: end;
+        display: flex;
+        gap: 14px;
+        justify-content: space-between;
+        margin-bottom: 16px;
+      }
+
+      .table-wrap {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        overflow: auto;
+      }
+
+      table {
+        border-collapse: collapse;
+        min-width: 980px;
+        width: 100%;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid var(--line);
+        padding: 12px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        background: #eef2f7;
+        color: #344054;
+        font-size: 0.82rem;
+        text-transform: uppercase;
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .list {
+        display: grid;
+        gap: 9px;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .list li {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 11px 12px;
+      }
+
+      .list-row {
+        align-items: center;
+        display: flex;
+        gap: 12px;
+        justify-content: space-between;
+      }
+
+      .list-row > span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .row-actions {
+        display: flex;
+        flex-shrink: 0;
+      }
+
+      .icon-btn {
+        min-height: 30px;
+        min-width: 30px;
+        padding: 4px 9px;
+      }
+
+      .toast {
+        background: var(--ink);
+        border-radius: 8px;
+        bottom: 18px;
+        color: white;
+        left: 50%;
+        max-width: min(560px, calc(100vw - 32px));
+        padding: 12px 14px;
+        position: fixed;
+        transform: translateX(-50%);
+        z-index: 20;
+      }
+
+      .toast.error {
+        background: #8a2424;
+      }
+
+      .empty {
+        color: var(--muted);
+        padding: 18px;
+      }
+
+      .hint {
+        color: var(--muted);
+        font-size: 0.88rem;
+        line-height: 1.5;
+      }
+
+      @media (max-width: 900px) {
+        .shell {
+          padding: 16px;
+        }
+
+        .topbar,
+        .section-head {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .workspace-path {
+          max-width: none;
+        }
+
+        .nav,
+        .dashboard-grid,
+        .form-grid,
+        .form-grid.three,
+        .split {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
   </head>
-  <body class="bg-slate-100 text-slate-900">
-    <div class="mx-auto max-w-7xl px-4 py-6">
-      <header class="mb-6 rounded-xl bg-white p-5 shadow">
-        <h1 class="text-2xl font-semibold">FileMane</h1>
-        <p class="text-sm text-slate-600">Sistema de Gestão Documental</p>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark">FM</div>
+          <div>
+            <h1>Segmais</h1>
+            <p class="muted">Gestão documental</p>
+          </div>
+        </div>
+        <div id="documentsRootLabel" class="workspace-path" title="Pasta física dos documentos">A carregar pasta...</div>
       </header>
 
-      <nav class="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-5">
-        <button data-tab="dashboard" class="tab-btn rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white">Dashboard</button>
-        <button data-tab="upload" class="tab-btn rounded-lg bg-white px-3 py-2 text-sm font-medium shadow">Upload</button>
-        <button data-tab="search" class="tab-btn rounded-lg bg-white px-3 py-2 text-sm font-medium shadow">Pesquisa</button>
-        <button data-tab="clients" class="tab-btn rounded-lg bg-white px-3 py-2 text-sm font-medium shadow">Clientes</button>
-        <button data-tab="types" class="tab-btn rounded-lg bg-white px-3 py-2 text-sm font-medium shadow">Tipos</button>
+      <nav class="nav" aria-label="Navegação principal">
+        <button data-tab="dashboard" class="tab-btn active" type="button">Início</button>
+        <button data-tab="upload" class="tab-btn" type="button">Upload</button>
+        <button data-tab="search" class="tab-btn" type="button">Pesquisa</button>
+        <button data-tab="clients" class="tab-btn" type="button">Clientes</button>
+        <button data-tab="types" class="tab-btn" type="button">Tipos</button>
       </nav>
 
-      <main class="space-y-6">
-        <section id="tab-dashboard" class="tab-panel grid gap-4 sm:grid-cols-3">
-          <article class="rounded-xl bg-white p-5 shadow">
-            <p class="text-sm text-slate-500">Documentos</p>
-            <p id="statDocuments" class="text-3xl font-semibold">0</p>
-          </article>
-          <article class="rounded-xl bg-white p-5 shadow">
-            <p class="text-sm text-slate-500">Clientes</p>
-            <p id="statClients" class="text-3xl font-semibold">0</p>
-          </article>
-          <article class="rounded-xl bg-white p-5 shadow">
-            <p class="text-sm text-slate-500">Tipos</p>
-            <p id="statTypes" class="text-3xl font-semibold">0</p>
-          </article>
+      <main>
+        <section id="tab-dashboard" class="tab-panel">
+          <div class="dashboard-grid">
+            <article class="metric">
+              <span>Documentos</span>
+              <strong id="statDocuments">0</strong>
+            </article>
+            <article class="metric">
+              <span>Clientes</span>
+              <strong id="statClients">0</strong>
+            </article>
+            <article class="metric">
+              <span>Espaço usado</span>
+              <strong id="statSize">0 KB</strong>
+            </article>
+          </div>
+
+          <div class="split">
+            <section class="panel">
+              <div class="section-head">
+                <div>
+                  <h2>Documentos recentes</h2>
+                  <p class="muted">Últimos ficheiros guardados no arquivo.</p>
+                </div>
+                <button class="btn secondary" data-tab-target="search" type="button">Pesquisar</button>
+              </div>
+              <ul id="recentItems" class="list"></ul>
+            </section>
+
+            <section class="panel">
+              <div class="section-head">
+                <div>
+                  <h2>Configuração local</h2>
+                  <p class="muted">Pasta física onde os documentos são arquivados.</p>
+                </div>
+              </div>
+              <form id="settingsForm" class="form-grid">
+                <label class="full">
+                  Pasta de documentos
+                  <input id="documentsRootInput" placeholder="Ex.: C:\Documentos\FileMane" required />
+                </label>
+                <div class="actions full">
+                  <button class="btn primary" type="submit">Guardar pasta</button>
+                </div>
+              </form>
+              <p class="hint">Use um caminho absoluto. Em localhost, o servidor cria a pasta se ela ainda não existir.</p>
+            </section>
+          </div>
         </section>
 
-        <section id="tab-upload" class="tab-panel hidden rounded-xl bg-white p-5 shadow">
-          <h2 class="mb-4 text-lg font-semibold">Upload de documento</h2>
-          <form id="uploadForm" class="grid gap-3 md:grid-cols-2">
-            <input list="clientsList" id="clientName" name="clientName" placeholder="Cliente" class="rounded border p-2" required />
-            <input id="clientNumber" name="clientNumber" placeholder="Número de cliente" class="rounded border p-2" required />
-            <input id="nif" name="nif" placeholder="NIF" class="rounded border p-2" required />
-            <input list="typesList" id="documentType" name="documentType" placeholder="Tipo de documento" class="rounded border p-2" required />
-            <input id="file" name="file" type="file" class="rounded border p-2 md:col-span-2" required />
-            <textarea id="notes" name="notes" placeholder="Observações (opcional)" class="rounded border p-2 md:col-span-2"></textarea>
-            <button class="rounded bg-indigo-600 px-4 py-2 font-medium text-white md:col-span-2" type="submit">Guardar documento</button>
+        <section id="tab-upload" class="tab-panel hidden panel">
+          <div class="section-head">
+            <div>
+              <h2>Upload de documento</h2>
+              <p class="muted">Guarda o ficheiro e regista os metadados em SQLite.</p>
+            </div>
+          </div>
+          <form id="uploadForm" class="form-grid">
+            <div class="combo">
+              <label for="clientName">Cliente</label>
+              <input id="clientName" name="clientName" autocomplete="off" required />
+              <div id="clientSuggestions" class="suggestions hidden" role="listbox"></div>
+            </div>
+            <div class="combo">
+              <label for="documentType">Tipo de documento</label>
+              <input id="documentType" name="documentType" autocomplete="off" required />
+              <div id="typeSuggestions" class="suggestions hidden" role="listbox"></div>
+            </div>
+            <label>
+              Número de cliente
+              <input id="clientNumber" name="clientNumber" required />
+            </label>
+            <label>
+              NIF
+              <input id="nif" name="nif" inputmode="numeric" required />
+            </label>
+            <label class="full">
+              Ficheiro
+              <input id="file" name="file" type="file" required />
+            </label>
+            <label class="full">
+              Observações
+              <textarea id="notes" name="notes" placeholder="Opcional"></textarea>
+            </label>
+            <div class="actions full">
+              <button class="btn primary" type="submit">Guardar documento</button>
+              <button class="btn secondary" type="reset">Limpar</button>
+            </div>
           </form>
-          <datalist id="clientsList"></datalist>
-          <datalist id="typesList"></datalist>
         </section>
 
-        <section id="tab-search" class="tab-panel hidden rounded-xl bg-white p-5 shadow">
-          <h2 class="mb-4 text-lg font-semibold">Pesquisa avançada</h2>
-          <form id="searchForm" class="grid gap-3 md:grid-cols-3">
-            <input id="searchClientName" placeholder="Cliente" class="rounded border p-2" />
-            <input id="searchClientNumber" placeholder="Número de cliente" class="rounded border p-2" />
-            <input id="searchNif" placeholder="NIF" class="rounded border p-2" />
-            <select id="searchTypes" multiple class="h-28 rounded border p-2"></select>
-            <input id="searchDateFrom" type="date" class="rounded border p-2" />
-            <input id="searchDateTo" type="date" class="rounded border p-2" />
-            <input id="searchText" placeholder="Texto em nome do ficheiro/observações" class="rounded border p-2 md:col-span-2" />
-            <button class="rounded bg-indigo-600 px-4 py-2 font-medium text-white" type="submit">Pesquisar</button>
+        <section id="tab-search" class="tab-panel hidden panel">
+          <div class="section-head">
+            <div>
+              <h2>Pesquisa avançada</h2>
+              <p class="muted">Combine cliente, tipo, datas e texto livre.</p>
+            </div>
+            <button id="clearSearch" class="btn secondary" type="button">Limpar filtros</button>
+          </div>
+          <form id="searchForm" class="form-grid three">
+            <div class="combo">
+              <label for="searchClientName">Cliente</label>
+              <input id="searchClientName" autocomplete="off" />
+              <div id="searchClientSuggestions" class="suggestions hidden" role="listbox"></div>
+            </div>
+            <label>
+              Número de cliente
+              <input id="searchClientNumber" />
+            </label>
+            <label>
+              NIF
+              <input id="searchNif" />
+            </label>
+            <label>
+              Desde
+              <input id="searchDateFrom" type="date" />
+            </label>
+            <label>
+              Até
+              <input id="searchDateTo" type="date" />
+            </label>
+            <label>
+              Texto
+              <input id="searchText" placeholder="Nome do ficheiro ou observações" />
+            </label>
+            <div class="search-types full">
+              <div class="field-head">
+                <span class="field-label">Tipos de documento</span>
+                <button id="searchTypesAll" class="btn secondary" type="button">Todos</button>
+              </div>
+              <div id="searchTypes" class="search-types-list" role="group" aria-label="Tipos de documento"></div>
+            </div>
+            <div class="actions full">
+              <button class="btn primary" type="submit">Pesquisar</button>
+            </div>
           </form>
 
-          <div class="mt-5 overflow-x-auto">
-            <table class="min-w-full text-left text-sm">
+          <div class="table-wrap" style="margin-top: 18px">
+            <table>
               <thead>
-                <tr class="border-b bg-slate-50">
-                  <th class="p-2">Nome do ficheiro</th>
-                  <th class="p-2">Cliente</th>
-                  <th class="p-2">NIF</th>
-                  <th class="p-2">Tipo</th>
-                  <th class="p-2">Data</th>
-                  <th class="p-2">Abrir documento</th>
-                  <th class="p-2">Abrir pasta</th>
+                <tr>
+                  <th>Nome do ficheiro</th>
+                  <th>Cliente</th>
+                  <th>NIF</th>
+                  <th>Tipo</th>
+                  <th>Data</th>
+                  <th>Abrir documento</th>
+                  <th>Abrir pasta</th>
                 </tr>
               </thead>
               <tbody id="resultsBody"></tbody>
@@ -83,28 +691,55 @@
           </div>
         </section>
 
-        <section id="tab-clients" class="tab-panel hidden rounded-xl bg-white p-5 shadow">
-          <h2 class="mb-4 text-lg font-semibold">Gestão de clientes</h2>
-          <form id="clientForm" class="mb-4 grid gap-3 md:grid-cols-4">
-            <input id="newClientName" placeholder="Nome" class="rounded border p-2" required />
-            <input id="newClientNumber" placeholder="Número" class="rounded border p-2" required />
-            <input id="newClientNif" placeholder="NIF" class="rounded border p-2" required />
-            <button class="rounded bg-indigo-600 px-4 py-2 font-medium text-white" type="submit">Adicionar</button>
+        <section id="tab-clients" class="tab-panel hidden panel">
+          <div class="section-head">
+            <div>
+              <h2>Gestão de clientes</h2>
+              <p class="muted">Clientes guardados ficam disponíveis no autocomplete.</p>
+            </div>
+          </div>
+          <form id="clientForm" class="form-grid three">
+            <label>
+              Nome
+              <input id="newClientName" required />
+            </label>
+            <label>
+              Número
+              <input id="newClientNumber" required />
+            </label>
+            <label>
+              NIF
+              <input id="newClientNif" required />
+            </label>
+            <div class="actions full">
+              <button class="btn primary" type="submit">Adicionar cliente</button>
+            </div>
           </form>
-          <ul id="clientsItems" class="space-y-1 text-sm"></ul>
+          <ul id="clientsItems" class="list" style="margin-top: 18px"></ul>
         </section>
 
-        <section id="tab-types" class="tab-panel hidden rounded-xl bg-white p-5 shadow">
-          <h2 class="mb-4 text-lg font-semibold">Gestão de tipos</h2>
-          <form id="typeForm" class="mb-4 flex gap-3">
-            <input id="newTypeName" placeholder="Nome do tipo" class="w-full rounded border p-2" required />
-            <button class="rounded bg-indigo-600 px-4 py-2 font-medium text-white" type="submit">Adicionar</button>
+        <section id="tab-types" class="tab-panel hidden panel">
+          <div class="section-head">
+            <div>
+              <h2>Gestão de tipos</h2>
+              <p class="muted">Tipos guardados ficam disponíveis em uploads e pesquisas.</p>
+            </div>
+          </div>
+          <form id="typeForm" class="form-grid">
+            <label>
+              Nome do tipo
+              <input id="newTypeName" required />
+            </label>
+            <div class="actions">
+              <button class="btn primary" type="submit">Adicionar tipo</button>
+            </div>
           </form>
-          <ul id="typesItems" class="space-y-1 text-sm"></ul>
+          <ul id="typesItems" class="list" style="margin-top: 18px"></ul>
         </section>
       </main>
     </div>
 
+    <div id="toast" class="toast hidden"></div>
     <script src="/app.js"></script>
   </body>
 </html>
