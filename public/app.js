@@ -22,6 +22,11 @@ function bindElements() {
     'clientNumber',
     'nif',
     'documentType',
+    'documentMonth',
+    'documentDay',
+    'documentYearSelect',
+    'documentMonthSelect',
+    'documentDaySelect',
     'clientSuggestions',
     'typeSuggestions',
     'searchForm',
@@ -29,8 +34,16 @@ function bindElements() {
     'searchClientSuggestions',
     'searchClientNumber',
     'searchNif',
-    'searchDateFrom',
-    'searchDateTo',
+    'searchDateFromMonth',
+    'searchDateFromDay',
+    'searchDateFromYear',
+    'searchDateFromMonthSelect',
+    'searchDateFromDaySelect',
+    'searchDateToMonth',
+    'searchDateToDay',
+    'searchDateToYear',
+    'searchDateToMonthSelect',
+    'searchDateToDaySelect',
     'searchText',
     'searchTypes',
     'searchTypesAll',
@@ -108,6 +121,142 @@ function formatBytes(value) {
     unit += 1;
   }
   return `${size.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
+}
+
+function pad2(value) {
+  return String(value).padStart(2, '0');
+}
+
+function daysInMonth(year, month) {
+  return new Date(Number(year), Number(month), 0).getDate();
+}
+
+function fillYearOptions(select, { required = false } = {}) {
+  const currentYear = new Date().getFullYear();
+  select.innerHTML = '';
+  if (!required) {
+    const blank = document.createElement('option');
+    blank.value = '';
+    blank.textContent = 'Ano';
+    select.appendChild(blank);
+  }
+
+  for (let year = currentYear + 2; year >= 1990; year -= 1) {
+    const option = document.createElement('option');
+    option.value = String(year);
+    option.textContent = String(year);
+    select.appendChild(option);
+  }
+}
+
+function fillMonthOptions(select, { required = false } = {}) {
+  const months = [
+    ['01', 'Janeiro'],
+    ['02', 'Fevereiro'],
+    ['03', 'Março'],
+    ['04', 'Abril'],
+    ['05', 'Maio'],
+    ['06', 'Junho'],
+    ['07', 'Julho'],
+    ['08', 'Agosto'],
+    ['09', 'Setembro'],
+    ['10', 'Outubro'],
+    ['11', 'Novembro'],
+    ['12', 'Dezembro'],
+  ];
+
+  select.innerHTML = '';
+  if (!required) {
+    const blank = document.createElement('option');
+    blank.value = '';
+    blank.textContent = 'Mês';
+    select.appendChild(blank);
+  }
+
+  months.forEach(([value, label]) => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    select.appendChild(option);
+  });
+}
+
+function fillDayOptions(select, year, month, blankLabel = 'Mês inteiro') {
+  const previous = select.value;
+  select.innerHTML = '';
+
+  const blank = document.createElement('option');
+  blank.value = '';
+  blank.textContent = blankLabel;
+  select.appendChild(blank);
+
+  if (!year || !month) {
+    select.value = '';
+    return;
+  }
+
+  for (let day = 1; day <= daysInMonth(year, month); day += 1) {
+    const option = document.createElement('option');
+    option.value = pad2(day);
+    option.textContent = pad2(day);
+    select.appendChild(option);
+  }
+
+  select.value = Array.from(select.options).some((option) => option.value === previous) ? previous : '';
+}
+
+function syncDocumentDateFields() {
+  const year = elements.documentYearSelect.value;
+  const month = elements.documentMonthSelect.value;
+  elements.documentMonth.value = year && month ? `${year}-${month}` : '';
+  elements.documentDay.value = elements.documentDaySelect.value;
+}
+
+function syncSearchDateFields() {
+  const fromYear = elements.searchDateFromYear.value;
+  const fromMonth = elements.searchDateFromMonthSelect.value;
+  const toYear = elements.searchDateToYear.value;
+  const toMonth = elements.searchDateToMonthSelect.value;
+
+  elements.searchDateFromMonth.value = fromYear && fromMonth ? `${fromYear}-${fromMonth}` : '';
+  elements.searchDateFromDay.value = elements.searchDateFromMonth.value ? elements.searchDateFromDaySelect.value : '';
+  elements.searchDateToMonth.value = toYear && toMonth ? `${toYear}-${toMonth}` : '';
+  elements.searchDateToDay.value = elements.searchDateToMonth.value ? elements.searchDateToDaySelect.value : '';
+}
+
+function setupDateControls() {
+  const today = new Date();
+  fillYearOptions(elements.documentYearSelect, { required: true });
+  fillMonthOptions(elements.documentMonthSelect, { required: true });
+  elements.documentYearSelect.value = String(today.getFullYear());
+  elements.documentMonthSelect.value = pad2(today.getMonth() + 1);
+  fillDayOptions(elements.documentDaySelect, elements.documentYearSelect.value, elements.documentMonthSelect.value);
+  syncDocumentDateFields();
+
+  [
+    elements.searchDateFromYear,
+    elements.searchDateToYear,
+  ].forEach((select) => fillYearOptions(select));
+  [
+    elements.searchDateFromMonthSelect,
+    elements.searchDateToMonthSelect,
+  ].forEach((select) => fillMonthOptions(select));
+  fillDayOptions(elements.searchDateFromDaySelect, '', '', 'Qualquer dia');
+  fillDayOptions(elements.searchDateToDaySelect, '', '', 'Qualquer dia');
+  syncSearchDateFields();
+}
+
+function updateDocumentDayOptions() {
+  fillDayOptions(elements.documentDaySelect, elements.documentYearSelect.value, elements.documentMonthSelect.value);
+  syncDocumentDateFields();
+}
+
+function updateSearchDayOptions(prefix) {
+  const year = elements[`searchDate${prefix}Year`].value;
+  const month = elements[`searchDate${prefix}MonthSelect`].value;
+  const day = elements[`searchDate${prefix}DaySelect`];
+  fillDayOptions(day, year, month, 'Qualquer dia');
+  syncSearchDateFields();
 }
 
 function appendTextCell(row, value) {
@@ -408,6 +557,16 @@ async function deleteType(type) {
   showToast('Tipo apagado.');
 }
 
+async function deleteDocument(row) {
+  if (!window.confirm(`Apagar o ficheiro ${row.fileName}?`)) {
+    return;
+  }
+
+  await requestJson(`/api/documents/${row.id}`, { method: 'DELETE' });
+  await Promise.all([refreshDashboard(), runSearch()]);
+  showToast('Documento apagado.');
+}
+
 function renderRecent(rows) {
   elements.recentItems.innerHTML = '';
   if (!rows.length) {
@@ -424,7 +583,7 @@ function renderRecent(rows) {
     const meta = document.createElement('p');
     title.textContent = row.fileName;
     meta.className = 'muted';
-    meta.textContent = `${row.clientName} | ${row.documentType} | ${formatDate(row.uploadAt)}`;
+    meta.textContent = `${row.clientName} | ${row.documentType} | ${row.documentDateLabel || 'Sem data'}`;
     item.append(title, meta);
     elements.recentItems.appendChild(item);
   });
@@ -497,7 +656,7 @@ function renderResults(rows) {
     const tr = document.createElement('tr');
     const td = document.createElement('td');
     td.className = 'empty';
-    td.colSpan = 7;
+    td.colSpan = 8;
     td.textContent = 'Sem documentos para os filtros selecionados.';
     tr.appendChild(td);
     elements.resultsBody.appendChild(tr);
@@ -510,7 +669,7 @@ function renderResults(rows) {
     appendTextCell(tr, row.clientName);
     appendTextCell(tr, row.nif);
     appendTextCell(tr, row.documentType);
-    appendTextCell(tr, formatDate(row.uploadAt));
+    appendTextCell(tr, row.documentDateLabel || 'Sem data');
 
     const openCell = document.createElement('td');
     openCell.appendChild(
@@ -527,20 +686,31 @@ function renderResults(rows) {
       })
     );
     tr.appendChild(folderCell);
+
+    const deleteCell = document.createElement('td');
+    deleteCell.appendChild(
+      createIconButton('x', 'Apagar ficheiro', () => {
+        deleteDocument(row).catch((error) => showToast(error.message, 'error'));
+      })
+    );
+    tr.appendChild(deleteCell);
     elements.resultsBody.appendChild(tr);
   });
 }
 
 async function runSearch(event) {
   if (event) event.preventDefault();
+  syncSearchDateFields();
 
   const selectedTypes = getSelectedSearchTypes();
   const params = new URLSearchParams({
     clientName: elements.searchClientName.value,
     clientNumber: elements.searchClientNumber.value,
     nif: elements.searchNif.value,
-    dateFrom: elements.searchDateFrom.value,
-    dateTo: elements.searchDateTo.value,
+    dateFromMonth: elements.searchDateFromMonth.value,
+    dateFromDay: elements.searchDateFromDay.value,
+    dateToMonth: elements.searchDateToMonth.value,
+    dateToDay: elements.searchDateToDay.value,
     text: elements.searchText.value,
   });
 
@@ -562,10 +732,15 @@ function queueSearch() {
 async function onUploadSubmit(event) {
   event.preventDefault();
   const form = event.currentTarget;
+  syncDocumentDateFields();
   const clientName = elements.clientName.value.trim();
   const clientNumber = elements.clientNumber.value.trim();
   const nif = elements.nif.value.trim();
   const documentType = elements.documentType.value.trim();
+
+  if (!elements.documentMonth.value) {
+    throw new Error('Escolha o ano e o mês do documento.');
+  }
 
   const shouldSaveClient = !clientExists(clientName, clientNumber, nif)
     ? window.confirm('Deseja adicionar este cliente à base de dados?')
@@ -585,6 +760,7 @@ async function onUploadSubmit(event) {
   }
 
   form.reset();
+  window.setTimeout(updateDocumentDayOptions, 0);
   elements.clientSuggestions.classList.add('hidden');
   await Promise.all([refreshClients(), refreshTypes(), refreshDashboard(), runSearch()]);
   showTab('search');
@@ -673,8 +849,45 @@ function bindForms() {
     elements.searchForm.reset();
     state.searchTypeSelection = null;
     renderTypes();
+    syncSearchDateFields();
     elements.searchClientSuggestions.classList.add('hidden');
     runSearch().catch((error) => showToast(error.message, 'error'));
+  });
+}
+
+function bindDateControls() {
+  elements.documentYearSelect.addEventListener('change', updateDocumentDayOptions);
+  elements.documentMonthSelect.addEventListener('change', updateDocumentDayOptions);
+  elements.documentDaySelect.addEventListener('change', syncDocumentDateFields);
+  elements.uploadForm.addEventListener('reset', () => {
+    window.setTimeout(() => {
+      const today = new Date();
+      elements.documentYearSelect.value = String(today.getFullYear());
+      elements.documentMonthSelect.value = pad2(today.getMonth() + 1);
+      updateDocumentDayOptions();
+    }, 0);
+  });
+
+  [
+    [elements.searchDateFromYear, 'From'],
+    [elements.searchDateFromMonthSelect, 'From'],
+    [elements.searchDateToYear, 'To'],
+    [elements.searchDateToMonthSelect, 'To'],
+  ].forEach(([control, prefix]) => {
+    control.addEventListener('change', () => {
+      updateSearchDayOptions(prefix);
+      queueSearch();
+    });
+  });
+
+  [
+    elements.searchDateFromDaySelect,
+    elements.searchDateToDaySelect,
+  ].forEach((control) => {
+    control.addEventListener('change', () => {
+      syncSearchDateFields();
+      queueSearch();
+    });
   });
 }
 
@@ -730,8 +943,6 @@ function bindAutocomplete() {
   [
     elements.searchClientNumber,
     elements.searchNif,
-    elements.searchDateFrom,
-    elements.searchDateTo,
     elements.searchText,
   ].forEach((control) => {
     control.addEventListener('input', queueSearch);
@@ -751,8 +962,10 @@ function bindAutocomplete() {
 
 async function init() {
   bindElements();
+  setupDateControls();
   bindNavigation();
   bindForms();
+  bindDateControls();
   bindAutocomplete();
   await Promise.all([refreshSettings(), refreshDashboard(), refreshClients(), refreshTypes()]);
   await runSearch();

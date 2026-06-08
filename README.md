@@ -30,13 +30,13 @@ Por omissão, os documentos são guardados em `Documentos/<Cliente>/<Tipo>/`.
 
 ## Funcionalidades
 
-- Upload de documentos com cliente,z número de cliente, NIF, tipo e observações
-- Registo automático de nome original, caminho físico, data/hora, tamanho e extensão
+- Upload de documentos com cliente, número de cliente, NIF, tipo, mês/ano do documento, dia opcional e observações
+- Registo automático de nome original, caminho físico, data/hora técnica do upload, tamanho e extensão
 - Metadados em SQLite
 - Clientes e tipos começam vazios e podem ser guardados durante o upload
-- Autocomplete incremental para clientes e tipos
+- Autocomplete incremental para clientes e tipos, com pesquisa por nome, número de cliente e NIF
 - Preenchimento automático de número/NIF ao escolher cliente guardado
-- Pesquisa por cliente, número, NIF, um ou vários tipos, intervalo de datas e texto
+- Pesquisa por cliente, número, NIF, um ou vários tipos, intervalo de mês/ano com dia opcional e texto
 - Resultados com abrir PDF no browser, abrir outros ficheiros pela aplicação predefinida do sistema operativo e abrir pasta física
 - Dashboard com totais, tamanho ocupado, documentos recentes e configuração local
 

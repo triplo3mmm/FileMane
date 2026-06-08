@@ -28,20 +28,69 @@ function sanitizeFileName(value) {
   return sanitized && sanitized !== '.' && sanitized !== '..' ? sanitized : 'ficheiro';
 }
 
-function toIsoDateRangeStart(date) {
-  return `${date}T00:00:00.000Z`;
-}
-
-function toIsoDateRangeEnd(date) {
-  return `${date}T23:59:59.999Z`;
-}
-
 function parseLimit(value, fallback = 50, max = 100) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
     return fallback;
   }
   return Math.min(Math.max(Math.trunc(parsed), 1), max);
+}
+
+function pad2(value) {
+  return String(value).padStart(2, '0');
+}
+
+function getDaysInMonth(year, month) {
+  return new Date(year, month, 0).getDate();
+}
+
+function buildDocumentPeriod(monthValue, dayValue = '') {
+  const monthText = (monthValue || '').toString().trim();
+  const dayText = (dayValue || '').toString().trim();
+  const match = monthText.match(/^(\d{4})-(\d{2})$/);
+
+  if (!match) {
+    throw new Error('Mês/ano do documento é obrigatório.');
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  if (month < 1 || month > 12) {
+    throw new Error('Mês do documento inválido.');
+  }
+
+  const lastDay = getDaysInMonth(year, month);
+  if (dayText) {
+    const day = Number(dayText);
+    if (!Number.isInteger(day) || day < 1 || day > lastDay) {
+      throw new Error('Dia do documento inválido para o mês selecionado.');
+    }
+
+    const isoDay = `${year}-${pad2(month)}-${pad2(day)}`;
+    return {
+      label: `${pad2(day)}/${pad2(month)}/${year}`,
+      periodStart: isoDay,
+      periodEnd: isoDay,
+      precision: 'day',
+    };
+  }
+
+  return {
+    label: `${pad2(month)}/${year}`,
+    periodStart: `${year}-${pad2(month)}-01`,
+    periodEnd: `${year}-${pad2(month)}-${pad2(lastDay)}`,
+    precision: 'month',
+  };
+}
+
+function buildSearchBoundary(monthValue, dayValue = '', boundary = 'start') {
+  const monthText = (monthValue || '').toString().trim();
+  if (!monthText) {
+    return null;
+  }
+
+  const period = buildDocumentPeriod(monthText, dayValue);
+  return boundary === 'end' ? period.periodEnd : period.periodStart;
 }
 
 function normalizeDocumentType(value) {
@@ -189,6 +238,10 @@ function createDatabase(dbPath) {
       client_number TEXT NOT NULL,
       nif TEXT NOT NULL,
       document_type TEXT NOT NULL,
+      document_date_label TEXT,
+      document_period_start TEXT,
+      document_period_end TEXT,
+      document_date_precision TEXT,
       notes TEXT,
       original_name TEXT NOT NULL,
       file_path TEXT NOT NULL,
@@ -210,6 +263,36 @@ function createDatabase(dbPath) {
     CREATE INDEX IF NOT EXISTS idx_clients_number_nocase ON clients(client_number COLLATE NOCASE);
     CREATE INDEX IF NOT EXISTS idx_clients_nif_nocase ON clients(nif COLLATE NOCASE);
     CREATE INDEX IF NOT EXISTS idx_document_types_name_nocase ON document_types(name COLLATE NOCASE);
+  `);
+
+  const documentColumns = new Set(db.prepare('PRAGMA table_info(documents)').all().map((column) => column.name));
+  [
+    ['document_date_label', 'TEXT'],
+    ['document_period_start', 'TEXT'],
+    ['document_period_end', 'TEXT'],
+    ['document_date_precision', 'TEXT'],
+  ].forEach(([name, type]) => {
+    if (!documentColumns.has(name)) {
+      db.prepare(`ALTER TABLE documents ADD COLUMN ${name} ${type}`).run();
+    }
+  });
+
+  db.prepare(
+    `UPDATE documents
+     SET
+       document_date_label = COALESCE(document_date_label, substr(upload_at, 9, 2) || '/' || substr(upload_at, 6, 2) || '/' || substr(upload_at, 1, 4)),
+       document_period_start = COALESCE(document_period_start, substr(upload_at, 1, 10)),
+       document_period_end = COALESCE(document_period_end, substr(upload_at, 1, 10)),
+       document_date_precision = COALESCE(document_date_precision, 'day')
+     WHERE document_date_label IS NULL
+        OR document_period_start IS NULL
+        OR document_period_end IS NULL
+        OR document_date_precision IS NULL`
+  ).run();
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_documents_period_start ON documents(document_period_start);
+    CREATE INDEX IF NOT EXISTS idx_documents_period_end ON documents(document_period_end);
   `);
 
   return db;
@@ -273,9 +356,15 @@ function createApp(config = {}) {
       totalSize: db.prepare('SELECT COALESCE(SUM(file_size), 0) AS size FROM documents').get().size,
       recentDocuments: db
         .prepare(
-          `SELECT id, original_name AS fileName, client_name AS clientName, UPPER(document_type) AS documentType, upload_at AS uploadAt
+          `SELECT
+             id,
+             original_name AS fileName,
+             client_name AS clientName,
+             UPPER(document_type) AS documentType,
+             document_date_label AS documentDateLabel,
+             upload_at AS uploadAt
            FROM documents
-           ORDER BY upload_at DESC
+           ORDER BY document_period_start DESC, upload_at DESC
            LIMIT 5`
         )
         .all(),
@@ -429,6 +518,8 @@ function createApp(config = {}) {
       const clientNumber = (req.body.clientNumber || '').toString().trim();
       const nif = (req.body.nif || '').toString().trim();
       const documentType = normalizeDocumentType(req.body.documentType);
+      const documentMonth = (req.body.documentMonth || '').toString().trim();
+      const documentDay = (req.body.documentDay || '').toString().trim();
       const notes = (req.body.notes || '').toString().trim();
       const saveClient = req.body.saveClient === 'true' || req.body.saveClient === true;
       const saveType = req.body.saveType === 'true' || req.body.saveType === true;
@@ -439,6 +530,14 @@ function createApp(config = {}) {
       if (!clientName || !clientNumber || !nif || !documentType) {
         await removeTempFile(file.path, uploadTemp);
         return res.status(400).json({ error: 'Cliente, número, NIF e tipo de documento são obrigatórios.' });
+      }
+
+      let documentPeriod;
+      try {
+        documentPeriod = buildDocumentPeriod(documentMonth, documentDay);
+      } catch (error) {
+        await removeTempFile(file.path, uploadTemp);
+        return res.status(400).json({ error: error.message });
       }
 
       if (saveClient) {
@@ -477,15 +576,21 @@ function createApp(config = {}) {
       const result = db
         .prepare(
           `INSERT INTO documents (
-            client_name, client_number, nif, document_type, notes,
+            client_name, client_number, nif, document_type,
+            document_date_label, document_period_start, document_period_end, document_date_precision,
+            notes,
             original_name, file_path, upload_at, file_size, extension
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .run(
           clientName,
           clientNumber,
           nif,
           documentType,
+          documentPeriod.label,
+          documentPeriod.periodStart,
+          documentPeriod.periodEnd,
+          documentPeriod.precision,
           notes,
           file.originalname,
           finalPath,
@@ -503,6 +608,10 @@ function createApp(config = {}) {
             client_number AS clientNumber,
             nif,
             UPPER(document_type) AS documentType,
+            document_date_label AS documentDateLabel,
+            document_period_start AS documentPeriodStart,
+            document_period_end AS documentPeriodEnd,
+            document_date_precision AS documentDatePrecision,
             notes,
             file_path AS filePath,
             upload_at AS uploadAt,
@@ -534,8 +643,22 @@ function createApp(config = {}) {
     const clientNumber = (req.query.clientNumber || '').toString().trim();
     const nif = (req.query.nif || '').toString().trim();
     const types = (req.query.types || '').toString().trim();
-    const dateFrom = (req.query.dateFrom || '').toString().trim();
-    const dateTo = (req.query.dateTo || '').toString().trim();
+    const dateFromMonth =
+      (req.query.dateFromMonth || '').toString().trim() ||
+      (req.query.dateFrom || '').toString().trim().slice(0, 7);
+    const dateFromDay =
+      (req.query.dateFromDay || '').toString().trim() ||
+      ((req.query.dateFrom || '').toString().trim().length === 10
+        ? (req.query.dateFrom || '').toString().trim().slice(8, 10)
+        : '');
+    const dateToMonth =
+      (req.query.dateToMonth || '').toString().trim() ||
+      (req.query.dateTo || '').toString().trim().slice(0, 7);
+    const dateToDay =
+      (req.query.dateToDay || '').toString().trim() ||
+      ((req.query.dateTo || '').toString().trim().length === 10
+        ? (req.query.dateTo || '').toString().trim().slice(8, 10)
+        : '');
     const text = (req.query.text || '').toString().trim();
 
     if (clientName) {
@@ -566,13 +689,20 @@ function createApp(config = {}) {
       }
     }
 
-    if (dateFrom) {
-      conditions.push('upload_at >= @dateFrom');
-      params.dateFrom = toIsoDateRangeStart(dateFrom);
-    }
-    if (dateTo) {
-      conditions.push('upload_at <= @dateTo');
-      params.dateTo = toIsoDateRangeEnd(dateTo);
+    try {
+      const dateFrom = buildSearchBoundary(dateFromMonth, dateFromDay, 'start');
+      const dateTo = buildSearchBoundary(dateToMonth, dateToDay, 'end');
+
+      if (dateFrom) {
+        conditions.push('document_period_end >= @dateFrom');
+        params.dateFrom = dateFrom;
+      }
+      if (dateTo) {
+        conditions.push('document_period_start <= @dateTo');
+        params.dateTo = dateTo;
+      }
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
     }
     if (text) {
       conditions.push('(original_name LIKE @text OR notes LIKE @text)');
@@ -590,6 +720,10 @@ function createApp(config = {}) {
           client_number AS clientNumber,
           nif,
           UPPER(document_type) AS documentType,
+          document_date_label AS documentDateLabel,
+          document_period_start AS documentPeriodStart,
+          document_period_end AS documentPeriodEnd,
+          document_date_precision AS documentDatePrecision,
           notes,
           file_path AS filePath,
           upload_at AS uploadAt,
@@ -597,7 +731,7 @@ function createApp(config = {}) {
           extension
         FROM documents
         ${whereClause}
-        ORDER BY upload_at DESC
+        ORDER BY document_period_start DESC, upload_at DESC
         LIMIT 500`
       )
       .all(params);
@@ -654,6 +788,42 @@ function createApp(config = {}) {
     try {
       openFolderForFile(row.file_path);
       return res.json({ ok: true });
+    } catch (error) {
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete('/api/documents/:id', async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) {
+        return res.status(400).json({ error: 'Documento inválido.' });
+      }
+
+      const row = db.prepare('SELECT file_path FROM documents WHERE id = ?').get(id);
+      if (!row) {
+        return res.status(404).json({ error: 'Documento não encontrado.' });
+      }
+      if (!isInside(documentsRoot, row.file_path)) {
+        return res.status(400).json({ error: 'Caminho inválido.' });
+      }
+
+      // Remove ficheiro físico se existir
+      if (fs.existsSync(row.file_path)) {
+        await fsp.unlink(row.file_path);
+      }
+
+      // Remove registo da base de dados
+      db.prepare('DELETE FROM documents WHERE id = ?').run(id);
+
+      // Tenta limpar pastas vazias (tipo e cliente)
+      try {
+        const dir = path.dirname(row.file_path);
+        await fsp.rmdir(dir).catch(() => {});
+        await fsp.rmdir(path.dirname(dir)).catch(() => {});
+      } catch (_) {}
+
+      return res.json({ message: 'Documento apagado.' });
     } catch (error) {
       return res.status(500).json({ error: error.message });
     }

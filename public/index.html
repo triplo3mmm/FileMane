@@ -194,6 +194,12 @@
         grid-template-columns: repeat(3, minmax(0, 1fr));
       }
 
+      .date-controls {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: minmax(110px, 0.8fr) minmax(140px, 1fr) minmax(112px, 0.7fr);
+      }
+
       .full {
         grid-column: 1 / -1;
       }
@@ -509,6 +515,7 @@
         .dashboard-grid,
         .form-grid,
         .form-grid.three,
+        .date-controls,
         .split {
           grid-template-columns: 1fr;
         }
@@ -613,6 +620,16 @@
               <input id="nif" name="nif" inputmode="numeric" required />
             </label>
             <label class="full">
+              Data/Período do documento
+              <span class="date-controls">
+                <select id="documentYearSelect" required></select>
+                <select id="documentMonthSelect" required></select>
+                <select id="documentDaySelect"></select>
+              </span>
+              <input id="documentMonth" name="documentMonth" type="hidden" required />
+              <input id="documentDay" name="documentDay" type="hidden" />
+            </label>
+            <label class="full">
               Ficheiro
               <input id="file" name="file" type="file" required />
             </label>
@@ -651,11 +668,23 @@
             </label>
             <label>
               Desde
-              <input id="searchDateFrom" type="date" />
+              <span class="date-controls">
+                <select id="searchDateFromYear"></select>
+                <select id="searchDateFromMonthSelect"></select>
+                <select id="searchDateFromDaySelect"></select>
+              </span>
+              <input id="searchDateFromMonth" type="hidden" />
+              <input id="searchDateFromDay" type="hidden" />
             </label>
             <label>
               Até
-              <input id="searchDateTo" type="date" />
+              <span class="date-controls">
+                <select id="searchDateToYear"></select>
+                <select id="searchDateToMonthSelect"></select>
+                <select id="searchDateToDaySelect"></select>
+              </span>
+              <input id="searchDateToMonth" type="hidden" />
+              <input id="searchDateToDay" type="hidden" />
             </label>
             <label>
               Texto
@@ -681,7 +710,7 @@
                   <th>Cliente</th>
                   <th>NIF</th>
                   <th>Tipo</th>
-                  <th>Data</th>
+                  <th>Data/Período</th>
                   <th>Abrir documento</th>
                   <th>Abrir pasta</th>
                 </tr>

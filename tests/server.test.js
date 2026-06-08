@@ -59,6 +59,7 @@ test('upload, save entities and search documents by filters', async (t) => {
   form.set('clientNumber', '1001');
   form.set('nif', '123456789');
   form.set('documentType', 'Faturas');
+  form.set('documentMonth', '2026-04');
   form.set('notes', 'Abril 2026');
   form.set('saveClient', 'true');
   form.set('saveType', 'true');
@@ -73,6 +74,8 @@ test('upload, save entities and search documents by filters', async (t) => {
   const uploadBody = await json(uploadResponse);
   assert.equal(uploadBody.clientName, 'Cliente A');
   assert.equal(uploadBody.documentType, 'FATURAS');
+  assert.equal(uploadBody.documentDateLabel, '04/2026');
+  assert.equal(uploadBody.documentDatePrecision, 'month');
 
   const clientToDeleteResponse = await fetch(`${baseUrl}/api/clients`, {
     method: 'POST',
@@ -149,6 +152,8 @@ test('upload, save entities and search documents by filters', async (t) => {
     clientName: 'Cliente',
     nif: '123',
     types: 'FATURAS',
+    dateFromMonth: '2026-04',
+    dateToMonth: '2026-04',
     text: 'Abril',
   });
   const searchResponse = await fetch(`${baseUrl}/api/documents?${params.toString()}`);
@@ -157,6 +162,7 @@ test('upload, save entities and search documents by filters', async (t) => {
   const searchRows = await json(searchResponse);
   assert.equal(searchRows.length, 1);
   assert.equal(searchRows[0].fileName, 'fatura.pdf');
+  assert.equal(searchRows[0].documentDateLabel, '04/2026');
 
   const viewResponse = await fetch(`${baseUrl}/api/documents/${searchRows[0].id}/view`);
   assert.equal(viewResponse.status, 200);
