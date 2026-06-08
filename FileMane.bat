@@ -1,8 +1,6 @@
 @echo off
-cd /d "%~dp0"
-echo Instalando dependências...
+cd /d "C:\caminho\para\FileMane"
 npm install
-echo Iniciando aplicação numa nova janela...
 start "" cmd /k "npm start"
 echo Aguardando inicialização...
 timeout /t 3 /nobreak >nul
