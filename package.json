@@ -1,0 +1,31 @@
+{
+  "name": "filemane",
+  "version": "1.0.0",
+  "description": "Manege files",
+  "main": "server.js",
+  "scripts": {
+    "test": "node --test tests/**/*.test.js",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/triplo3mmm/FileMane.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/triplo3mmm/FileMane/issues"
+  },
+  "homepage": "https://github.com/triplo3mmm/FileMane#readme",
+  "dependencies": {
+    "better-sqlite3": "^12.10.0",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.5.2",
+    "multer": "^2.1.1"
+  },
+  "devDependencies": {
+    "supertest": "^7.2.2"
+  }
+}
