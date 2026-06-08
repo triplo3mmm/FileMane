@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="pt-PT">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FileMane - Gestão Documental</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-slate-100 text-slate-900">
+    <div class="mx-auto max-w-7xl px-4 py-6">
+      <header class="mb-6 rounded-xl bg-white p-5 shadow">
+        <h1 class="text-2xl font-semibold">FileMane</h1>
+        <p class="text-sm text-slate-600">Sistema de Gestão Documental</p>
+      </header>
+
+      <nav class="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <button data-tab="dashboard" class="tab-btn rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white">Dashboard</button>
+        <button data-tab="upload" class="tab-btn rounded-lg bg-white px-3 py-2 text-sm font-medium shadow">Upload</button>
+        <button data-tab="search" class="tab-btn rounded-lg bg-white px-3 py-2 text-sm font-medium shadow">Pesquisa</button>
+        <button data-tab="clients" class="tab-btn rounded-lg bg-white px-3 py-2 text-sm font-medium shadow">Clientes</button>
+        <button data-tab="types" class="tab-btn rounded-lg bg-white px-3 py-2 text-sm font-medium shadow">Tipos</button>
+      </nav>
+
+      <main class="space-y-6">
+        <section id="tab-dashboard" class="tab-panel grid gap-4 sm:grid-cols-3">
+          <article class="rounded-xl bg-white p-5 shadow">
+            <p class="text-sm text-slate-500">Documentos</p>
+            <p id="statDocuments" class="text-3xl font-semibold">0</p>
+          </article>
+          <article class="rounded-xl bg-white p-5 shadow">
+            <p class="text-sm text-slate-500">Clientes</p>
+            <p id="statClients" class="text-3xl font-semibold">0</p>
+          </article>
+          <article class="rounded-xl bg-white p-5 shadow">
+            <p class="text-sm text-slate-500">Tipos</p>
+            <p id="statTypes" class="text-3xl font-semibold">0</p>
+          </article>
+        </section>
+
+        <section id="tab-upload" class="tab-panel hidden rounded-xl bg-white p-5 shadow">
+          <h2 class="mb-4 text-lg font-semibold">Upload de documento</h2>
+          <form id="uploadForm" class="grid gap-3 md:grid-cols-2">
+            <input list="clientsList" id="clientName" name="clientName" placeholder="Cliente" class="rounded border p-2" required />
+            <input id="clientNumber" name="clientNumber" placeholder="Número de cliente" class="rounded border p-2" required />
+            <input id="nif" name="nif" placeholder="NIF" class="rounded border p-2" required />
+            <input list="typesList" id="documentType" name="documentType" placeholder="Tipo de documento" class="rounded border p-2" required />
+            <input id="file" name="file" type="file" class="rounded border p-2 md:col-span-2" required />
+            <textarea id="notes" name="notes" placeholder="Observações (opcional)" class="rounded border p-2 md:col-span-2"></textarea>
+            <button class="rounded bg-indigo-600 px-4 py-2 font-medium text-white md:col-span-2" type="submit">Guardar documento</button>
+          </form>
+          <datalist id="clientsList"></datalist>
+          <datalist id="typesList"></datalist>
+        </section>
+
+        <section id="tab-search" class="tab-panel hidden rounded-xl bg-white p-5 shadow">
+          <h2 class="mb-4 text-lg font-semibold">Pesquisa avançada</h2>
+          <form id="searchForm" class="grid gap-3 md:grid-cols-3">
+            <input id="searchClientName" placeholder="Cliente" class="rounded border p-2" />
+            <input id="searchClientNumber" placeholder="Número de cliente" class="rounded border p-2" />
+            <input id="searchNif" placeholder="NIF" class="rounded border p-2" />
+            <select id="searchTypes" multiple class="h-28 rounded border p-2"></select>
+            <input id="searchDateFrom" type="date" class="rounded border p-2" />
+            <input id="searchDateTo" type="date" class="rounded border p-2" />
+            <input id="searchText" placeholder="Texto em nome do ficheiro/observações" class="rounded border p-2 md:col-span-2" />
+            <button class="rounded bg-indigo-600 px-4 py-2 font-medium text-white" type="submit">Pesquisar</button>
+          </form>
+
+          <div class="mt-5 overflow-x-auto">
+            <table class="min-w-full text-left text-sm">
+              <thead>
+                <tr class="border-b bg-slate-50">
+                  <th class="p-2">Nome do ficheiro</th>
+                  <th class="p-2">Cliente</th>
+                  <th class="p-2">NIF</th>
+                  <th class="p-2">Tipo</th>
+                  <th class="p-2">Data</th>
+                  <th class="p-2">Abrir documento</th>
+                  <th class="p-2">Abrir pasta</th>
+                </tr>
+              </thead>
+              <tbody id="resultsBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="tab-clients" class="tab-panel hidden rounded-xl bg-white p-5 shadow">
+          <h2 class="mb-4 text-lg font-semibold">Gestão de clientes</h2>
+          <form id="clientForm" class="mb-4 grid gap-3 md:grid-cols-4">
+            <input id="newClientName" placeholder="Nome" class="rounded border p-2" required />
+            <input id="newClientNumber" placeholder="Número" class="rounded border p-2" required />
+            <input id="newClientNif" placeholder="NIF" class="rounded border p-2" required />
+            <button class="rounded bg-indigo-600 px-4 py-2 font-medium text-white" type="submit">Adicionar</button>
+          </form>
+          <ul id="clientsItems" class="space-y-1 text-sm"></ul>
+        </section>
+
+        <section id="tab-types" class="tab-panel hidden rounded-xl bg-white p-5 shadow">
+          <h2 class="mb-4 text-lg font-semibold">Gestão de tipos</h2>
+          <form id="typeForm" class="mb-4 flex gap-3">
+            <input id="newTypeName" placeholder="Nome do tipo" class="w-full rounded border p-2" required />
+            <button class="rounded bg-indigo-600 px-4 py-2 font-medium text-white" type="submit">Adicionar</button>
+          </form>
+          <ul id="typesItems" class="space-y-1 text-sm"></ul>
+        </section>
+      </main>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
